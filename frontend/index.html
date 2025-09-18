@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Webapp Frontend</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #items { margin-top: 20px; }
+    .item { padding: 8px; border: 1px solid #ccc; margin-bottom: 5px; }
+    .item button { margin-left: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Webapp Frontend</h1>
+  <div id="status">Loading...</div>
+  <h2>Items</h2>
+  <div id="items"></div>
+  <h3>Add New Item</h3>
+  <form id="addForm">
+    <input type="text" id="name" placeholder="Name" required />
+    <input type="text" id="description" placeholder="Description" />
+    <button type="submit">Add</button>
+  </form>
+  <script>
+    const statusEl = document.getElementById('status');
+    const itemsEl = document.getElementById('items');
+    const addForm = document.getElementById('addForm');
+
+    function loadStatus() {
+      fetch('/api/health')
+        .then(r => r.json())
+        .then(d => statusEl.textContent = 'Backend status: ' + d.status)
+        .catch(e => statusEl.textContent = 'Error contacting backend');
+    }
+
+    function loadItems() {
+      fetch('/api/items')
+        .then(r => r.json())
+        .then(data => {
+          itemsEl.innerHTML = '';
+          data.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.textContent = `${item.id}: ${item.name} - ${item.description}`;
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit';
+            editBtn.onclick = () => editItem(item);
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'Delete';
+            delBtn.onclick = () => deleteItem(item.id);
+            div.appendChild(editBtn);
+            div.appendChild(delBtn);
+            itemsEl.appendChild(div);
+          });
+        });
+    }
+
+    function addItem(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const description = document.getElementById('description').value;
+      fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description })
+      })
+        .then(r => {
+          if (!r.ok) throw new Error('Failed');
+          return r.json();
+        })
+        .then(() => { loadItems(); addForm.reset(); })
+        .catch(console.error);
+    }
+
+    function editItem(item) {
+      const newName = prompt('New name', item.name);
+      if (newName === null) return;
+      const newDesc = prompt('New description', item.description);
+      fetch(`/api/items/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName, description: newDesc })
+      })
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.json(); })
+        .then(() => loadItems())
+        .catch(console.error);
+    }
+
+    function deleteItem(id) {
+      if (!confirm('Delete item?')) return;
+      fetch(`/api/items/${id}`, { method: 'DELETE' })
+        .then(r => { if (!r.ok && r.status !== 204) throw new Error('Failed'); loadItems(); })
+        .catch(console.error);
+    }
+
+    addForm.addEventListener('submit', addItem);
+    loadStatus();
+    loadItems();
+  </script>
+</body>
+</html>
